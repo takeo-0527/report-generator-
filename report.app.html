@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原稿生成 — Gemini長文生成ツール</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<style>
+  :root{
+    --paper:#F3EDDC;
+    --paper-deep:#EAE1C6;
+    --paper-line:#D8CBA4;
+    --ink:#211E19;
+    --ink-soft:#5B554A;
+    --shu:#B23A1F;
+    --shu-deep:#8E2D18;
+    --indigo:#2B3E58;
+    --ok:#4B6B4B;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(178,58,31,0.05), transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    line-height:1.7;
+    min-height:100vh;
+  }
+  .mincho{font-family:'Shippori Mincho', serif;}
+  .mono{font-family:'JetBrains Mono', monospace;}
+
+  /* layout */
+  .sheet{
+    max-width:880px;
+    margin:0 auto;
+    padding:56px 28px 120px;
+    position:relative;
+  }
+  .sheet::before{
+    content:"";
+    position:absolute;
+    top:0; bottom:0; left:44px;
+    width:1px;
+    background:linear-gradient(to bottom, transparent, var(--shu) 6%, var(--shu) 94%, transparent);
+    opacity:0.35;
+  }
+  @media (max-width:640px){ .sheet::before{ left:18px; } }
+
+  header.hero{
+    padding-left:64px;
+    margin-bottom:64px;
+  }
+  @media (max-width:640px){ header.hero{ padding-left:30px; } }
+  .eyebrow{
+    color:var(--shu);
+    font-size:13px;
+    letter-spacing:0.28em;
+    font-weight:600;
+    margin-bottom:14px;
+  }
+  h1.title{
+    font-size:clamp(32px,5vw,46px);
+    margin:0 0 16px;
+    font-weight:700;
+    letter-spacing:0.02em;
+  }
+  .subtitle{
+    color:var(--ink-soft);
+    font-size:15px;
+    max-width:52ch;
+  }
+
+  .section{
+    padding-left:64px;
+    margin-bottom:56px;
+    position:relative;
+  }
+  @media (max-width:640px){ .section{ padding-left:30px; } }
+  .section .kanji-mark{
+    position:absolute;
+    left:0;
+    top:2px;
+    width:44px;
+    text-align:center;
+    font-family:'Shippori Mincho', serif;
+    font-size:20px;
+    color:var(--shu);
+    background:var(--paper);
+  }
+  @media (max-width:640px){ .kanji-mark{ width:18px; left:0; font-size:16px;} }
+  .section-title{
+    font-family:'Shippori Mincho', serif;
+    font-size:22px;
+    font-weight:700;
+    margin:0 0 6px;
+  }
+  .section-desc{
+    color:var(--ink-soft);
+    font-size:13px;
+    margin-bottom:22px;
+  }
+
+  /* card */
+  .card{
+    background:rgba(255,253,246,0.55);
+    border:1px solid var(--paper-line);
+    border-radius:3px;
+    padding:22px;
+  }
+  label.field-label{
+    display:block;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink-soft);
+    letter-spacing:0.05em;
+    margin-bottom:8px;
+  }
+  input[type="text"], input[type="password"], input[type="number"], textarea, select{
+    width:100%;
+    background:#FCFAF2;
+    border:1px solid var(--paper-line);
+    border-radius:2px;
+    padding:10px 12px;
+    font-family:inherit;
+    font-size:14px;
+    color:var(--ink);
+    outline:none;
+    transition:border-color .15s;
+  }
+  input:focus, textarea:focus, select:focus{
+    border-color:var(--shu);
+  }
+  textarea{ resize:vertical; min-height:80px; }
+
+  .row{ display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+  .row > div{ flex:1; min-width:180px; }
+
+  .key-row{ display:flex; gap:8px; }
+  .key-row input{ flex:1; }
+
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+  }
+  .btn{
+    background:var(--ink);
+    color:var(--paper);
+    padding:10px 16px;
+    font-size:13px;
+    font-weight:600;
+    border-radius:2px;
+    letter-spacing:0.03em;
+    transition:transform .12s, background .15s;
+  }
+  .btn:hover{ background:var(--shu-deep); }
+  .btn:active{ transform:scale(0.98); }
+  .btn:disabled{ background:#B9B2A0; cursor:not-allowed; }
+  .btn-ghost{
+    background:transparent;
+    color:var(--ink-soft);
+    border:1px solid var(--paper-line);
+    padding:9px 14px;
+    font-size:13px;
+    border-radius:2px;
+  }
+  .btn-ghost:hover{ border-color:var(--shu); color:var(--shu); }
+  .btn-ghost:disabled{ opacity:0.4; cursor:not-allowed; }
+  .btn-ghost:disabled:hover{ border-color:var(--paper-line); color:var(--ink-soft); }
+  .btn-shu{
+    background:var(--shu);
+    color:#FCFAF2;
+    padding:13px 22px;
+    font-size:15px;
+    font-weight:700;
+    border-radius:2px;
+    letter-spacing:0.05em;
+  }
+  .btn-shu:hover{ background:var(--shu-deep); }
+  .btn-shu:disabled{ background:#C9B9A9; }
+
+  small.hint{ display:block; color:var(--ink-soft); font-size:11.5px; margin-top:6px; }
+
+  /* dropzone */
+  .dropzone{
+    border:1.5px dashed var(--paper-line);
+    border-radius:3px;
+    padding:32px 16px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13.5px;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  .dropzone.drag{
+    border-color:var(--shu);
+    background:rgba(178,58,31,0.05);
+    color:var(--shu);
+  }
+  .thumbs{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(84px,1fr));
+    gap:10px;
+    margin-top:16px;
+  }
+  .thumb{
+    position:relative;
+    border:1px solid var(--paper-line);
+    border-radius:2px;
+    overflow:hidden;
+    aspect-ratio:1/1;
+    background:#fff;
+  }
+  .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .thumb .pdf-badge{
+    display:flex; align-items:center; justify-content:center;
+    width:100%; height:100%;
+    font-size:11px; font-weight:700; color:var(--indigo);
+    background:#e7e6de;
+  }
+  .thumb .order{
+    position:absolute; top:3px; left:3px;
+    background:var(--ink); color:var(--paper);
+    font-size:10px; font-family:'JetBrains Mono',monospace;
+    padding:1px 5px; border-radius:2px;
+  }
+  .thumb .rm{
+    position:absolute; top:3px; right:3px;
+    background:rgba(178,58,31,0.9); color:#fff;
+    width:18px; height:18px; border-radius:50%;
+    font-size:12px; line-height:18px; text-align:center;
+    padding:0;
+  }
+  .thumb .mv{
+    position:absolute; bottom:3px;
+    background:rgba(33,30,25,0.75); color:#fff;
+    width:18px; height:18px; border-radius:2px;
+    font-size:11px; line-height:18px; text-align:center; padding:0;
+  }
+  .thumb .mv.left{ left:3px; }
+  .thumb .mv.right{ right:3px; }
+
+  /* genkou grid progress — signature element */
+  .genkou-wrap{ margin-top:18px; }
+  .genkou-label{
+    display:flex; justify-content:space-between;
+    font-size:12px; color:var(--ink-soft); margin-bottom:8px;
+  }
+  .genkou-count{ font-family:'JetBrains Mono',monospace; color:var(--shu); font-weight:600;}
+  .genkou-grid{
+    display:grid;
+    grid-template-columns:repeat(30, 1fr);
+    gap:2px;
+  }
+  .genkou-grid .cell{
+    aspect-ratio:1/1;
+    background:#fff;
+    border:1px solid var(--paper-line);
+    border-radius:1px;
+  }
+  .genkou-grid .cell.filled{
+    background:var(--shu);
+    border-color:var(--shu-deep);
+  }
+  .genkou-grid .cell.active{
+    background:var(--indigo);
+    border-color:var(--indigo);
+    animation:pulse 1s infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1;} 50%{opacity:0.4;}
+  }
+  .status-line{
+    margin-top:14px;
+    font-size:13.5px;
+    color:var(--ink);
+    min-height:20px;
+  }
+  .status-line .dot{
+    display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--shu); margin-right:8px;
+    animation:pulse 1.1s infinite;
+  }
+  .error-box{
+    margin-top:14px;
+    background:rgba(178,58,31,0.08);
+    border:1px solid var(--shu);
+    color:var(--shu-deep);
+    padding:12px 14px;
+    font-size:13px;
+    border-radius:2px;
+    white-space:pre-wrap;
+  }
+
+  /* output */
+  .output-toolbar{
+    display:flex; justify-content:space-between; align-items:center;
+    flex-wrap:wrap; gap:10px;
+    margin-bottom:14px;
+  }
+  .charcount{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px; color:var(--ink-soft);
+  }
+  .charcount b{ color:var(--shu); }
+  .output-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .preview{
+    background:#FCFAF2;
+    border:1px solid var(--paper-line);
+    border-radius:2px;
+    padding:26px 30px;
+    max-height:640px;
+    overflow-y:auto;
+    font-size:15px;
+  }
+  .preview h1,.preview h2,.preview h3{ font-family:'Shippori Mincho',serif; }
+  .preview::-webkit-scrollbar{ width:8px; }
+  .preview::-webkit-scrollbar-thumb{ background:var(--paper-line); border-radius:4px; }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:var(--paper);
+    padding:10px 18px; border-radius:3px; font-size:13px;
+    opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s;
+    z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  footer{
+    padding-left:64px; margin-top:60px;
+    color:var(--ink-soft); font-size:11.5px;
+  }
+  @media (max-width:640px){ footer{ padding-left:30px; } }
+
+  .slider-row{ display:flex; align-items:center; gap:12px; }
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    height:2px; background:var(--paper-line); flex:1; border-radius:2px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:14px; height:14px; border-radius:50%;
+    background:var(--shu); cursor:pointer; border:2px solid #FCFAF2;
+    box-shadow:0 0 0 1px var(--shu);
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <header class="hero">
+    <div class="eyebrow">GEMINI 長文生成ツール ・ CLIENT-ONLY</div>
+    <h1 class="title mincho">画像資料から、<br>一冊の原稿を書き起こす。</h1>
+    <p class="subtitle">複数枚の画像資料と目標文字数を渡すと、構成案の作成から各章の執筆までを自動で行います。すべての処理はこのブラウザの中だけで完結し、サーバーには何も送信されません。</p>
+  </header>
+
+  <!-- 一：設定 -->
+  <section class="section">
+    <div class="kanji-mark">一</div>
+    <h2 class="section-title">API設定</h2>
+    <p class="section-desc">Google AI Studio で発行した Gemini API キーを使用します。キーはこの端末のブラウザにのみ保存されます。</p>
+    <div class="card">
+      <label class="field-label">API KEY</label>
+      <div class="key-row">
+        <input type="password" id="apiKey" placeholder="AIza...">
+        <button class="btn-ghost" id="toggleKey" type="button">表示</button>
+        <button class="btn-ghost" id="clearKey" type="button">削除</button>
+      </div>
+      <small class="hint">保存すると次回以降このアプリを開いたときに自動で読み込まれます。</small>
+
+      <div class="row" style="margin-top:16px;">
+        <div>
+          <label class="field-label">モデル</label>
+          <select id="model">
+            <option value="gemini-3.6-flash" selected>gemini-3.6-flash（高速・推奨）</option>
+            <option value="gemini-3.7-flash">gemini-3.7-flash（最新・高性能）</option>
+            <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview（高精度・低速）</option>
+          </select>
+          <small class="hint">2026年8月時点の現行モデルです。古いモデル名（gemini-2.5系など）はGoogle側で新規利用停止となっています。</small>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 二：資料 -->
+  <section class="section">
+    <div class="kanji-mark">二</div>
+    <h2 class="section-title">資料のアップロード</h2>
+    <p class="section-desc">JPEG / PNG / WEBP / HEIC(HEIF) / PDF に対応。ドラッグで並び替えると、そのまま執筆時の参照順になります。</p>
+    <div class="card">
+      <div class="dropzone" id="dropzone">
+        <div>ここに画像・PDFをドラッグ＆ドロップ、またはクリックして選択</div>
+        <small class="hint">1枚〜数十枚まで対応（iPhoneのIMG_○○○○.HEIC形式も可）</small>
+      </div>
+      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,application/pdf" multiple style="display:none;">
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+  </section>
+
+  <!-- 三：指示 -->
+  <section class="section">
+    <div class="kanji-mark">三</div>
+    <h2 class="section-title">文字数・指示</h2>
+    <p class="section-desc">全体の目標文字数と、書いてほしい視点や体験談などを伝えます。</p>
+    <div class="card">
+      <label class="field-label">目標文字数：<span id="charLabel" class="mono">8,000</span> 文字</label>
+      <div class="slider-row">
+        <input type="range" id="charSlider" min="2000" max="20000" step="500" value="8000">
+        <input type="number" id="charNumber" min="2000" max="20000" step="500" value="8000" style="width:100px;">
+      </div>
+
+      <div style="margin-top:18px;">
+        <label class="field-label">補足指示・個人的な感想メモ（任意）</label>
+        <textarea id="instructions" placeholder="例）子供の視点を交えてほしい／自分は初めて訪れたので新鮮な驚きを中心に書いてほしい　など"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- 四：生成 -->
+  <section class="section">
+    <div class="kanji-mark">四</div>
+    <h2 class="section-title">生成</h2>
+    <p class="section-desc">構成案の作成 → 各章の執筆 → 結合、の順に自動で進みます。</p>
+    <div class="card">
+      <button class="btn-shu" id="generateBtn">生成を開始する</button>
+
+      <div class="genkou-wrap">
+        <div class="genkou-label">
+          <span>進捗（原稿用紙イメージ）</span>
+          <span class="genkou-count" id="genkouCount">0 / 0 文字</span>
+        </div>
+        <div class="genkou-grid" id="genkouGrid"></div>
+      </div>
+
+      <div class="status-line" id="statusLine"></div>
+      <div class="error-box" id="errorBox" style="display:none;"></div>
+    </div>
+  </section>
+
+  <!-- 五：出力 -->
+  <section class="section" id="outputSection">
+    <div class="kanji-mark">五</div>
+    <h2 class="section-title">完成原稿</h2>
+    <p class="section-desc">内容を確認し、必要な形式で書き出してください。</p>
+    <div class="card">
+      <div class="output-toolbar">
+        <div class="charcount">全体文字数：<b id="finalCharCount">0</b> 文字</div>
+        <div class="output-actions">
+          <button class="btn-ghost" id="copyBtn" disabled>クリップボードにコピー</button>
+          <button class="btn-ghost" id="downloadMd" disabled>.md でダウンロード</button>
+          <button class="btn-ghost" id="downloadTxt" disabled>.txt でダウンロード</button>
+        </div>
+      </div>
+      <div class="preview" id="preview"><span style="color:var(--ink-soft);">まだ原稿は生成されていません。「四：生成」で生成を開始すると、ここに表示されます。</span></div>
+    </div>
+  </section>
+
+  <footer>brightseed_ai — 画像資料からの長文生成ツール（クライアントサイド完結版）</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- state ----------
+  let files = []; // {id, file, mime, base64, isPdf, previewUrl}
+  let apiKeyVisible = false;
+  let generatedMarkdown = "";
+  let isGenerating = false;
+
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- persistence ----------
+  // 単体ファイルとして配布・ホスティングして使うことを想定し、通常のブラウザのlocalStorageを使う。
+  // (Claudeのアーティファクトプレビュー内でのみ有効なwindow.storageには依存しない)
+  const STORAGE_KEY = 'brightseed_gemini_api_key';
+
+  function loadApiKey(){
+    try{
+      const v = localStorage.getItem(STORAGE_KEY);
+      if(v){ $('apiKey').value = v; }
+    }catch(e){ /* プライベートブラウジング等でlocalStorageが使えない場合は何もしない */ }
+  }
+  function saveApiKey(key){
+    try{ localStorage.setItem(STORAGE_KEY, key); }
+    catch(e){ console.error('storage save failed', e); }
+  }
+  function clearApiKeyStorage(){
+    try{ localStorage.removeItem(STORAGE_KEY); }
+    catch(e){ /* ignore */ }
+  }
+
+  loadApiKey();
+
+  $('apiKey').addEventListener('change', () => {
+    const v = $('apiKey').value.trim();
+    if(v) saveApiKey(v);
+  });
+  $('toggleKey').addEventListener('click', () => {
+    apiKeyVisible = !apiKeyVisible;
+    $('apiKey').type = apiKeyVisible ? 'text' : 'password';
+    $('toggleKey').textContent = apiKeyVisible ? '隠す' : '表示';
+  });
+  $('clearKey').addEventListener('click', () => {
+    $('apiKey').value = '';
+    clearApiKeyStorage();
+    showToast('APIキーを削除しました');
+  });
+
+  // ---------- toast ----------
+  let toastTimer;
+  function showToast(msg){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ---------- char count slider/number sync ----------
+  const slider = $('charSlider'), number = $('charNumber'), charLabel = $('charLabel');
+  function syncChar(val){
+    val = Math.max(2000, Math.min(20000, Number(val) || 8000));
+    slider.value = val; number.value = val;
+    charLabel.textContent = val.toLocaleString('ja-JP');
+  }
+  slider.addEventListener('input', () => syncChar(slider.value));
+  number.addEventListener('change', () => syncChar(number.value));
+
+  // ---------- file handling ----------
+  const dropzone = $('dropzone'), fileInput = $('fileInput'), thumbsEl = $('thumbs');
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+    fileInput.value = '';
+  });
+
+  const ACCEPTED_MIME = ['image/jpeg','image/png','image/webp','image/heic','image/heif','application/pdf'];
+  const EXT_MIME_MAP = { heic:'image/heic', heif:'image/heif', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', pdf:'application/pdf' };
+
+  function resolveMime(f){
+    // iOSなどHEIC/HEIFのMIMEが空 or application/octet-streamで来る端末対策に拡張子でも判定する
+    if(ACCEPTED_MIME.includes(f.type)) return f.type;
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    return EXT_MIME_MAP[ext] || '';
+  }
+
+  function handleFiles(fileList){
+    Array.from(fileList).forEach((f) => {
+      const mime = resolveMime(f);
+      if(!mime){
+        showToast(`非対応の形式です: ${f.name}`);
+        return;
+      }
+      const id = 'f' + Math.random().toString(36).slice(2,9);
+      const isPdf = mime === 'application/pdf';
+      const isHeic = mime === 'image/heic' || mime === 'image/heif';
+      // HEIC/HEIFはブラウザが直接プレビュー表示できないため、PDFと同様にバッジ表示にする
+      const entry = { id, file: f, mime, isPdf, isHeic, previewUrl: (isPdf || isHeic) ? null : URL.createObjectURL(f), base64: null };
+      files.push(entry);
+    });
+    renderThumbs();
+  }
+
+  function renderThumbs(){
+    thumbsEl.innerHTML = '';
+    files.forEach((entry, idx) => {
+      const div = document.createElement('div');
+      div.className = 'thumb';
+      div.innerHTML = `
+        <span class="order mono">${idx+1}</span>
+        ${entry.isPdf
+          ? `<div class="pdf-badge">PDF</div>`
+          : entry.isHeic
+            ? `<div class="pdf-badge">HEIC</div>`
+            : `<img src="${entry.previewUrl}" alt="">`}
+        <button class="rm" data-id="${entry.id}" title="削除">×</button>
+        <button class="mv left" data-id="${entry.id}" data-dir="-1" title="前へ">‹</button>
+        <button class="mv right" data-id="${entry.id}" data-dir="1" title="次へ">›</button>
+      `;
+      thumbsEl.appendChild(div);
+    });
+    thumbsEl.querySelectorAll('.rm').forEach(btn => btn.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
+      files = files.filter(f => f.id !== id);
+      renderThumbs();
+    }));
+    thumbsEl.querySelectorAll('.mv').forEach(btn => btn.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
+      const dir = Number(e.currentTarget.dataset.dir);
+      const i = files.findIndex(f => f.id === id);
+      const j = i + dir;
+      if(j < 0 || j >= files.length) return;
+      [files[i], files[j]] = [files[j], files[i]];
+      renderThumbs();
+    }));
+  }
+
+  function fileToBase64(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const RESIZE_MAX_DIM = 1568; // Geminiの内部処理上、これ以上大きくしても精度に寄与しにくい目安
+  const RESIZE_QUALITY = 0.85;
+
+  // JPEG/PNG/WEBPはcanvasで縮小・再圧縮してから送信し、リクエストサイズを抑える。
+  // HEIC/HEIFはブラウザのcanvasが直接デコードできないため元データのまま送る。PDFも同様。
+  function resizeImageToBase64(file){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if(width > RESIZE_MAX_DIM || height > RESIZE_MAX_DIM){
+          if(width > height){ height = Math.round(height * RESIZE_MAX_DIM / width); width = RESIZE_MAX_DIM; }
+          else { width = Math.round(width * RESIZE_MAX_DIM / height); height = RESIZE_MAX_DIM; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+          if(!blob){ reject(new Error('画像の圧縮に失敗しました')); return; }
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        }, 'image/jpeg', RESIZE_QUALITY);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('画像の読み込みに失敗しました')); };
+      img.src = url;
+    });
+  }
+
+  async function buildImageParts(){
+    const parts = [];
+    for(const entry of files){
+      if(!entry.base64){
+        if(entry.mime === 'image/jpeg' || entry.mime === 'image/png' || entry.mime === 'image/webp'){
+          try{
+            entry.base64 = await resizeImageToBase64(entry.file);
+            entry.sendMime = 'image/jpeg';
+          }catch(e){
+            // 縮小に失敗したら元データにフォールバック
+            entry.base64 = await fileToBase64(entry.file);
+            entry.sendMime = entry.mime;
+          }
+        }else{
+          entry.base64 = await fileToBase64(entry.file);
+          entry.sendMime = entry.mime;
+        }
+      }
+      parts.push({ inlineData: { mimeType: entry.sendMime || entry.mime, data: entry.base64 } });
+    }
+    return parts;
+  }
+
+  // ---------- genkou grid (signature progress element) ----------
+  const GRID_CELLS = 300; // 300 boxes ≈ visual manuscript sheet
+  const gridEl = $('genkouGrid');
+  function initGrid(){
+    gridEl.innerHTML = '';
+    for(let i=0;i<GRID_CELLS;i++){
+      const c = document.createElement('div');
+      c.className = 'cell';
+      gridEl.appendChild(c);
+    }
+  }
+  initGrid();
+
+  function updateGrid(current, target){
+    const cells = gridEl.children;
+    const ratio = target > 0 ? Math.min(1, current / target) : 0;
+    const filledCount = Math.round(ratio * GRID_CELLS);
+    for(let i=0;i<GRID_CELLS;i++){
+      cells[i].classList.remove('filled','active');
+      if(i < filledCount) cells[i].classList.add('filled');
+      else if(i === filledCount) cells[i].classList.add('active');
+    }
+    $('genkouCount').textContent = `${current.toLocaleString('ja-JP')} / ${target.toLocaleString('ja-JP')} 文字`;
+  }
+
+  function setStatus(msg, spinning){
+    $('statusLine').innerHTML = msg ? `${spinning ? '<span class="dot"></span>' : ''}${msg}` : '';
+  }
+  function showError(msg){
+    const box = $('errorBox');
+    box.style.display = 'block';
+    box.textContent = msg;
+  }
+  function clearError(){
+    $('errorBox').style.display = 'none';
+    $('errorBox').textContent = '';
+  }
+
+  // ---------- Gemini API ----------
+  async function callGemini(model, apiKey, parts, opts){
+    opts = opts || {};
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const body = {
+      contents: [{ role: 'user', parts }],
+      generationConfig: Object.assign({}, opts.generationConfig || {})
+    };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok){
+      let detail = '';
+      try{ const j = await res.json(); detail = j?.error?.message || JSON.stringify(j); }
+      catch(e){ detail = await res.text(); }
+      const err = new Error(`APIエラー (HTTP ${res.status}): ${detail}`);
+      err.status = res.status;
+      throw err;
+    }
+    const data = await res.json();
+    const cand = data?.candidates?.[0];
+    if(!cand){
+      throw new Error('APIから有効な応答が返りませんでした。プロンプトがブロックされた可能性があります。');
+    }
+    const text = (cand.content?.parts || []).map(p => p.text || '').join('');
+    if(!text){
+      throw new Error('生成結果が空でした。');
+    }
+    return text;
+  }
+
+  const RETRIABLE_STATUS = [429, 500, 502, 503, 504];
+
+  // 503(タイムアウト)や429(レート制限)などの一時的なエラーは間隔を空けて自動リトライする
+  async function callGeminiWithRetry(model, apiKey, parts, opts, onRetry){
+    const maxRetries = 4;
+    let attempt = 0;
+    while(true){
+      try{
+        return await callGemini(model, apiKey, parts, opts);
+      }catch(err){
+        const retriable = RETRIABLE_STATUS.includes(err.status);
+        if(!retriable || attempt >= maxRetries){
+          throw err;
+        }
+        attempt++;
+        const delaySec = Math.min(30, 4 * Math.pow(2, attempt - 1)); // 4s, 8s, 16s, 30s
+        if(onRetry) onRetry(attempt, maxRetries, delaySec, err);
+        await new Promise(r => setTimeout(r, delaySec * 1000));
+      }
+    }
+  }
+
+  function extractJson(text){
+    let t = text.trim();
+    t = t.replace(/^```json\s*/i, '').replace(/^```\s*/,'').replace(/```\s*$/,'');
+    return JSON.parse(t);
+  }
+
+  // 空白を除いた文字数（プレビューの文字数表示と統一する基準）
+  function countChars(text){
+    return text.replace(/\s/g, '').length;
+  }
+
+  // API側の圧縮がうまくいかなかった場合の最終手段：文末（。！？）で機械的に切り詰める
+  function hardTruncateToCharLimit(text, limit){
+    let count = 0;
+    let cutIndex = text.length;
+    for(let i = 0; i < text.length; i++){
+      if(!/\s/.test(text[i])) count++;
+      if(count > limit){ cutIndex = i; break; }
+    }
+    let truncated = text.slice(0, cutIndex);
+    const lastPunctIndex = Math.max(
+      truncated.lastIndexOf('。'),
+      truncated.lastIndexOf('！'),
+      truncated.lastIndexOf('？')
+    );
+    // 切りすぎて内容が極端に短くならない範囲でのみ、文の区切りまで戻す
+    if(lastPunctIndex > truncated.length * 0.5){
+      truncated = truncated.slice(0, lastPunctIndex + 1);
+    }
+    return truncated.trim();
+  }
+
+  // ---------- main pipeline ----------
+  $('generateBtn').addEventListener('click', runPipeline);
+
+  async function runPipeline(){
+    if(isGenerating) return;
+    clearError();
+
+    const apiKey = $('apiKey').value.trim();
+    const model = $('model').value;
+    const targetChars = Number(number.value) || 8000;
+    const instructions = $('instructions').value.trim();
+
+    if(!apiKey){ showError('APIキーを入力してください。'); return; }
+    if(files.length === 0){ showError('画像またはPDFを1枚以上アップロードしてください。'); return; }
+
+    isGenerating = true;
+    $('generateBtn').disabled = true;
+    $('generateBtn').textContent = '生成中…';
+    updateGrid(0, targetChars);
+    let combined = [];
+
+    try{
+      // Step 1: 構成案
+      setStatus('構成案を作成しています…', true);
+      const imageParts = await buildImageParts();
+
+      const outlinePrompt = `あなたはプロの編集者です。渡された画像資料の内容を分析し、全体で${targetChars}文字以内（目安: ${targetChars - 50}〜${targetChars}文字、空白を除いた文字数）の感想文・レポートを作成するための構成案を考えてください。
+${instructions ? `補足指示: ${instructions}\n` : ''}
+目標文字数に応じて適切な章数（目安: 2000〜4000文字ごとに1章）を設定し、各章について「title」（章タイトル）と「targetChars」（その章の目標文字数、数値）を持つJSON配列として出力してください。全章のtargetChars合計が${targetChars}文字を超えないようにしてください。
+出力は必ず次の形式のJSONのみとし、説明文やMarkdown記法は一切含めないでください。
+{"chapters": [{"title": "章タイトル", "targetChars": 1300}, ...]}`;
+
+      const outlineParts = [...imageParts, { text: outlinePrompt }];
+      const outlineRaw = await callGeminiWithRetry(model, apiKey, outlineParts, {
+        generationConfig: { responseMimeType: 'application/json' }
+      }, (attempt, max, delaySec) => {
+        setStatus(`一時的なエラーが発生したため再試行しています…（${attempt}/${max}回目、${delaySec}秒後）`, true);
+      });
+      const outline = extractJson(outlineRaw);
+      const chapters = outline.chapters || outline;
+      if(!Array.isArray(chapters) || chapters.length === 0){
+        throw new Error('構成案の解析に失敗しました。もう一度お試しください。');
+      }
+
+      // Step 2: 各章の執筆
+      // 各章ごとに「残り文字数 ÷ 残り章数」で上限を動的に再計算し、
+      // 前の章が超過/不足した分を後続の章で調整することで、全体の超過を防ぐ。
+      let totalChars = 0;
+      let remainingBudget = targetChars;
+      for(let i=0; i<chapters.length; i++){
+        const ch = chapters[i];
+        const remainingChapterCount = chapters.length - i;
+        const chapterCap = Math.max(150, Math.round(remainingBudget / remainingChapterCount));
+        setStatus(`第${i+1}章「${ch.title}」を執筆中… (${i+1}/${chapters.length}章)`, true);
+
+        const chapterPrompt = `あなたはプロのライター/編集者です。以下の構成案に基づき、資料の画像内容をしっかり反映した文章を執筆してください。
+
+【全体構成案】
+${chapters.map((c, idx) => `${idx+1}. ${c.title}`).join('\n')}
+
+【今回執筆する章】
+第${i+1}章「${ch.title}」
+
+【文字数の厳守事項（最重要）】
+この章は空白を除いて${chapterCap}文字以内で執筆してください。これは目安ではなく絶対に超えてはいけない上限です。${Math.max(100, chapterCap - 50)}〜${chapterCap}文字の範囲に収めてください。文字数を優先し、内容は要点を絞って簡潔にまとめてください。
+
+${instructions ? `【補足指示】\n${instructions}\n\n` : ''}【執筆済みの直前の内容（文脈の参考）】
+${combined.length > 0 ? combined[combined.length-1].slice(-400) : '（この章が最初の章です）'}
+
+上記を踏まえ、第${i+1}章の本文のみをMarkdown形式で執筆してください。見出しは「## 第${i+1}章　${ch.title}」から始めてください。章タイトルの繰り返しや前置きの説明文は不要です。文字数の上限を必ず守ってください。`;
+
+        const chapterParts = [...imageParts, { text: chapterPrompt }];
+        const chapterText = await callGeminiWithRetry(model, apiKey, chapterParts, {}, (attempt, max, delaySec) => {
+          setStatus(`第${i+1}章「${ch.title}」で一時的なエラーが発生したため再試行しています…（${attempt}/${max}回目、${delaySec}秒後）`, true);
+        });
+        const trimmed = chapterText.trim();
+        const chapterActualChars = countChars(trimmed);
+        combined.push(trimmed);
+        totalChars += chapterActualChars;
+        remainingBudget -= chapterActualChars;
+        updateGrid(totalChars, targetChars);
+      }
+
+      // Step 3: 結合
+      setStatus('結合・整形しています…', true);
+      generatedMarkdown = combined.join('\n\n');
+      totalChars = countChars(generatedMarkdown);
+      updateGrid(Math.min(totalChars, targetChars), targetChars);
+
+      // Step 4: 文字数超過時の安全装置
+      if(totalChars > targetChars){
+        setStatus(`文字数が${(totalChars - targetChars).toLocaleString('ja-JP')}文字超過しているため、指定文字数に収まるよう圧縮しています…`, true);
+        try{
+          const shrinkPrompt = `以下の文章を、内容・構成・見出し（##）をできるだけ保ったまま、全体で${targetChars}文字以内（空白を除いた文字数で、目安は${targetChars - 50}〜${targetChars}文字）に圧縮してください。重要度の低い描写や重複を削って調整してください。出力は圧縮後の本文（Markdown）のみとし、説明文や前置きは一切含めないでください。
+
+---
+${generatedMarkdown}`;
+          const shrunkRaw = await callGeminiWithRetry(model, apiKey, [{ text: shrinkPrompt }], {}, (attempt, max, delaySec) => {
+            setStatus(`圧縮中に一時的なエラーが発生したため再試行しています…（${attempt}/${max}回目、${delaySec}秒後）`, true);
+          });
+          const shrunkTrimmed = shrunkRaw.trim();
+          const shrunkChars = countChars(shrunkTrimmed);
+          if(shrunkChars > 0 && shrunkChars <= targetChars){
+            generatedMarkdown = shrunkTrimmed;
+            totalChars = shrunkChars;
+          }
+        }catch(shrinkErr){
+          console.error('圧縮に失敗:', shrinkErr);
+          // 圧縮に失敗しても後段の強制トリミングでフォールバックする
+        }
+      }
+
+      // それでも超過している場合は文末を機械的に整形して確実に上限内に収める
+      if(totalChars > targetChars){
+        generatedMarkdown = hardTruncateToCharLimit(generatedMarkdown, targetChars);
+        totalChars = countChars(generatedMarkdown);
+        showToast('文字数上限に収めるため、末尾を自動調整しました');
+      }
+
+      updateGrid(totalChars, targetChars);
+      renderOutput(generatedMarkdown);
+      setStatus('完成しました。');
+      showToast('原稿が完成しました');
+
+    }catch(err){
+      console.error(err);
+      showError(err.message || String(err));
+      setStatus('');
+      // 途中の章まで生成できていた場合は、失っても大丈夫なようにその分だけ出力しておく
+      if(typeof combined !== 'undefined' && combined.length > 0){
+        generatedMarkdown = combined.join('\n\n');
+        renderOutput(generatedMarkdown);
+        showToast(`${combined.length}章まで生成済みの内容を表示しています`);
+      }
+    }finally{
+      isGenerating = false;
+      $('generateBtn').disabled = false;
+      $('generateBtn').textContent = '生成を開始する';
+    }
+  }
+
+  function renderOutput(markdown){
+    const totalChars = countChars(markdown);
+    $('finalCharCount').textContent = totalChars.toLocaleString('ja-JP');
+    $('preview').innerHTML = (window.marked ? marked.parse(markdown) : markdown.replace(/\n/g,'<br>'));
+    $('copyBtn').disabled = false;
+    $('downloadMd').disabled = false;
+    $('downloadTxt').disabled = false;
+    $('outputSection').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  // ---------- output actions ----------
+  async function copyToClipboard(text){
+    // navigator.clipboard は https/localhost 等の「安全なコンテキスト」でしか動かないため、
+    // file:// で直接開いた場合に備えてフォールバックを用意する
+    if(navigator.clipboard && window.isSecureContext){
+      try{
+        await navigator.clipboard.writeText(text);
+        return true;
+      }catch(e){ /* フォールバックへ */ }
+    }
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    }catch(e){
+      return false;
+    }
+  }
+
+  $('copyBtn').addEventListener('click', async () => {
+    if(!generatedMarkdown){ showToast('コピーできる原稿がまだありません'); return; }
+    const ok = await copyToClipboard(generatedMarkdown);
+    showToast(ok ? 'クリップボードにコピーしました' : 'コピーに失敗しました。テキストを選択して手動でコピーしてください');
+  });
+
+  function downloadText(filename, mime, content){
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  $('downloadMd').addEventListener('click', () => downloadText('原稿.md', 'text/markdown', generatedMarkdown));
+  $('downloadTxt').addEventListener('click', () => downloadText('原稿.txt', 'text/plain', generatedMarkdown));
+
+})();
+</script>
+</body>
+</html>
